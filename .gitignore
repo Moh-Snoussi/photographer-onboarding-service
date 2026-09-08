@@ -1,0 +1,13 @@
+.env
+.env.local
+/backend/vendor/
+/backend/var/
+/scraper/node_modules/
+/scraper/playwright-report/
+/scraper/test-results/
+.idea/
+.vscode/
+.DS_Store
+/tmp/
+/storage/
+*.log

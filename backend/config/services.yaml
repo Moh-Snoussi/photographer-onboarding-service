@@ -1,0 +1,14 @@
+parameters:
+  scraper_base_url: '%env(SCRAPER_BASE_URL)%'
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  App\:
+    resource: '../src/'
+
+  App\Service\ScraperClient:
+    arguments:
+      $scraperBaseUrl: '%scraper_base_url%'
