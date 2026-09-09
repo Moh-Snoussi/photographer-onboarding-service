@@ -1,0 +1,32 @@
+@scraperBaseUrl = http://localhost:3001
+
+### Verify that the scraper worker is available.
+GET {{scraperBaseUrl}}/health
+Accept: application/json
+
+### Crawl a public page and return its title, resolved URL, and discovered links.
+POST {{scraperBaseUrl}}/crawl
+Content-Type: application/json
+Accept: application/json
+
+{
+	"url": "https://example.com"
+}
+
+### Reject a request without an HTTP(S) URL.
+POST {{scraperBaseUrl}}/crawl
+Content-Type: application/json
+Accept: application/json
+
+{
+	"url": "not-a-url"
+}
+
+### Return a gateway error when the page cannot be reached.
+POST {{scraperBaseUrl}}/crawl
+Content-Type: application/json
+Accept: application/json
+
+{
+	"url": "https://invalid.invalid"
+}

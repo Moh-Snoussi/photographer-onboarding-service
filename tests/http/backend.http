@@ -1,0 +1,49 @@
+@backendBaseUrl = http://localhost:8001
+@onboardingApiToken = change-me-to-a-long-random-secret
+
+### Submit a valid onboarding request and crawl a public page.
+POST {{backendBaseUrl}}/api/onboarding/scrape
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
+
+{
+	"url": "https://example.com",
+	"allowTextScraping": true,
+	"allowImageScraping": false
+}
+
+### Reject an invalid URL during payload validation.
+POST {{backendBaseUrl}}/api/onboarding/scrape
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
+
+{
+	"url": "not-a-url",
+	"allowTextScraping": true,
+	"allowImageScraping": false
+}
+
+### Reject a request when neither scraping consent is granted.
+POST {{backendBaseUrl}}/api/onboarding/scrape
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
+
+{
+	"url": "https://example.com",
+	"allowTextScraping": false,
+	"allowImageScraping": false
+}
+
+### Log and reject a malformed JSON payload.
+POST {{backendBaseUrl}}/api/onboarding/scrape
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
+
+{
+	"url": "https://example.com",
+	"allowTextScraping": true,
+}
