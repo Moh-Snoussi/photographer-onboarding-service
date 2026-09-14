@@ -17,6 +17,7 @@ export class OllamaAdapter extends LlmAdapter {
         messages: [{ role: 'system', content: systemMessage }],
         format: 'json',
         stream: false,
+        think: false,
       }),
     });
     const body = await readJson(response, 'Ollama');
