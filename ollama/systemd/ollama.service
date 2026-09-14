@@ -1,0 +1,18 @@
+[Unit]
+Description=Ollama local LLM service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/ollama/ollama.env
+ExecStart=/usr/bin/env ollama serve
+Restart=on-failure
+RestartSec=3
+
+# Avoid one small CPU-only host trying to run many requests at once.
+MemoryHigh=6G
+MemoryMax=7G
+
+[Install]
+WantedBy=multi-user.target
