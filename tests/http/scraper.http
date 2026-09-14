@@ -4,13 +4,22 @@
 GET {{scraperBaseUrl}}/health
 Accept: application/json
 
-### Crawl a public page and return its title, resolved URL, and discovered links.
+### Crawl a public page and return its hero image and discovered Impressum text.
 POST {{scraperBaseUrl}}/crawl
 Content-Type: application/json
 Accept: application/json
 
 {
-	"url": "https://example.com"
+	"url": "https://google.com"
+}
+
+### Crawl and normalize the result through the configured LLM adapter.
+POST {{scraperBaseUrl}}/smart-crawl
+Content-Type: application/json
+Accept: application/json
+
+{
+	"url": "https://google.com"
 }
 
 ### Reject a request without an HTTP(S) URL.
