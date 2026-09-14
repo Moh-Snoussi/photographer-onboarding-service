@@ -1,0 +1,120 @@
+SMART CRAWL HANDOVER
+====================
+
+Purpose
+-------
+Smart crawl enriches the deterministic Playwright crawl using a configured LLM,
+while retaining the existing result shape:
+
+- Hero
+- ImpressumUrl
+- Impressum
+
+API
+---
+POST /smart-crawl
+Content-Type: application/json
+
+{
+  "url": "https://example.com"
+}
+
+The endpoint is implemented in scraper/src/server.js. It calls
+ScrapingService.smartCrawl(url).
+
+Execution flow
+--------------
+1. smartCrawl performs the normal deterministic crawl first.
+2. If no LLM provider is configured, smart crawl fails with a SmartCrawlError.
+3. LlmSystemMessage reads scraper/src/llm/system-message.md and renders its
+   expressions:
+   - {{url}}: the requested URL
+   - {{crawl}}: the JSON-serialized deterministic crawl object
+4. The rendered system message is the only argument passed to
+   llmAdapter.completeJson(systemMessage).
+5. The LLM result must be a JSON object. Only non-empty string values for the
+   existing result keys are accepted; other values fall back to the deterministic
+   crawl result.
+6. If template loading, an LLM request, parsing, or result validation fails,
+   smartCrawl logs a warning and throws a SmartCrawlError.
+
+HTTP response contract
+----------------------
+Successful smart crawls return HTTP 200:
+
+  { "success": true, "crawl": { "Hero": "...", "ImpressumUrl": "...", "Impressum": "..." } }
+
+Invalid URLs return HTTP 422 and unavailable or failed LLM enrichment returns
+HTTP 503. Both failure responses have this shape:
+
+  { "success": false, "error": "..." }
+
+LLM adapter boundary
+--------------------
+LlmAdapter declares:
+
+  completeJson(systemMessage)
+
+Implemented adapters in scraper/src/llm/HttpLlmAdapters.js:
+
+- OllamaAdapter: POST /api/chat with a system-role message and JSON mode.
+- OpenAiCompatibleAdapter: POST /chat/completions with a system-role message
+  and JSON-object response mode. Used for xAI / Grok.
+- AlephAlphaAdapter: POST /complete/json, passing the rendered system message
+  as the prompt.
+
+Provider selection
+------------------
+createLlmAdapter() selects the provider using LLM_PROVIDER:
+
+- ollama: LLM_MODEL, optional OLLAMA_BASE_URL (default: http://localhost:11434)
+- xai or grok: LLM_MODEL, XAI_API_KEY, optional XAI_BASE_URL
+  (default: https://api.x.ai/v1)
+- aleph-alpha or alephalpha: LLM_MODEL, ALEPH_ALPHA_BASE_URL,
+  ALEPH_ALPHA_API_KEY
+
+No LLM_PROVIDER means no adapter is created and smart crawl returns HTTP 503.
+Unknown providers and incomplete provider configuration fail at startup.
+
+Environment loading
+-------------------
+EnvironmentService is dependency-free and runs before createLlmAdapter() at
+scraper startup. It reads, in order:
+
+1. scraper/.env
+2. scraper/.env.local
+
+Values in .env.local override .env. Values already supplied in process.env,
+such as Docker Compose environment values, override both files.
+
+Both scraper environment files are Git-ignored. The checked-in local files are
+intentionally not present. On a developer machine:
+
+- scraper/.env contains safe shared defaults and leaves LLM_PROVIDER empty.
+- scraper/.env.local contains commented provider blocks; uncomment one and
+  enter actual local values and credentials.
+
+Tests and validation
+--------------------
+- scraper/test/ScrapingService.test.js covers system-message rendering and the
+  fallback behavior for invalid LLM output.
+- scraper/test/EnvironmentService.test.js covers .env / .env.local precedence,
+  preservation of process environment values, and basic parsing.
+- Direct syntax checks and an EnvironmentService load check pass.
+- The full npm test suite requires Node 20 or later because the existing
+  Playwright dependency does not run on the current local Node 16.20.2 runtime.
+
+Relevant files
+--------------
+- scraper/src/server.js
+- scraper/src/scraping/ScrapingService.js
+- scraper/src/llm/LlmAdapter.js
+- scraper/src/llm/LlmSystemMessage.js
+- scraper/src/llm/system-message.md
+- scraper/src/llm/HttpLlmAdapters.js
+- scraper/src/llm/createLlmAdapter.js
+- scraper/src/services/EnvironmentService.js
+- scraper/test/ScrapingService.test.js
+- scraper/test/EnvironmentService.test.js
+- scraper/README.md
+- tests/http/scraper.http
