@@ -1,5 +1,6 @@
 .env
 .env.local
+/scraper/.env.local
 /backend/vendor/
 /backend/var/
 /scraper/node_modules/
