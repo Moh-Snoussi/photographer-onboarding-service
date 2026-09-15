@@ -1,62 +1,58 @@
-# Photographer Onboarding Service
+# Photographer Onboarding Scraper
 
-On-premise backend service for automated photographer onboarding.
-
-The service receives a photographer website URL plus explicit scraping consent, renders the website with Playwright, extracts legal pages and image candidates, stores accepted images internally, and returns normalized onboarding data for the shop backend.
+An authenticated Node.js service for extracting photographer website data. It
+uses Playwright to render public pages, identifies a homepage hero image,
+discovers the Impressum page, and returns extracted legal-notice text. Optional
+LLM enrichment runs through a privately deployed Ollama server.
 
 ## Architecture
 
 ```text
-Client / Frontend
-       |
-       v
-Symfony + API Platform
-       |
-       v
-Onboarding Application Service
-       |
-       v
-Node.js + Playwright Worker
-       |
-       +--> Legal-page discovery
-       +--> Logo / hero-image heuristics
-       +--> Rendered DOM / geometry
-       |
-       v
-Local processing / MinIO / local LLM
+API client
+    |
+    | Authorization: Bearer <ONBOARDING_API_TOKEN>
+    v
+Playwright scraper (:3001)
+    |
+    +--> rendered DOM and image extraction
+    +--> Impressum discovery and text extraction
+    |
+    +--> optional private Ollama server (:11434)
 ```
 
-## First milestone
-
-The initial vertical slice:
-
-1. accepts `url`, `allow_text_scraping`, and `allow_image_scraping`,
-2. validates the request,
-3. calls the Playwright worker,
-4. renders the target page,
-5. returns basic metadata and discovered links.
+The scraper is the only application service. The [`scraper/`](scraper) folder
+contains the HTTP API; [`ollama/`](ollama) contains standalone Linux
+installation and systemd files for the optional local model server.
 
 ## Run
 
+Configure a development token in `scraper/.env.local` or use the development
+default in `scraper/.env`, then start the scraper:
+
 ```bash
-docker compose up --build
+cd scraper
+npm install
+npx playwright install
+npm run dev
 ```
 
-Backend: `http://localhost:8080`
-Scraper worker: `http://localhost:3001`
+Scraper API: `http://localhost:3001`
 
 ## Example request
 
 ```bash
-curl -X POST http://localhost:8080/api/onboarding/scrape \
+curl -X POST http://localhost:3001/crawl \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer change-me-to-a-long-random-secret' \
   -d '{
-    "url": "https://example.com",
-    "allow_text_scraping": true,
-    "allow_image_scraping": true
+    "url": "https://example.com"
   }'
 ```
 
 ## Security roadmap
 
-Before production use, arbitrary URL crawling must be protected against SSRF, redirects to private networks, oversized downloads, excessive crawl depth, and browser resource exhaustion.
+Before production use, replace the development API token with a unique secret.
+Arbitrary URL crawling must also be protected against SSRF, redirects to private
+networks, oversized downloads, excessive crawl depth, and browser resource
+exhaustion. Keep Ollama on a private network because its native API has no
+authentication.

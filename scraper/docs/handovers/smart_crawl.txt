@@ -90,8 +90,8 @@ scraper startup. It reads, in order:
 1. scraper/.env
 2. scraper/.env.local
 
-Values in .env.local override .env. Values already supplied in process.env,
-such as Docker Compose environment values, override both files.
+Values in .env.local override .env. Values already supplied in process.env
+override both files.
 
 Both scraper environment files are Git-ignored. The checked-in local files are
 intentionally not present. On a developer machine:

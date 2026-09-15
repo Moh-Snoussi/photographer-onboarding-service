@@ -103,8 +103,8 @@ Set `LLM_PROVIDER` and the provider-specific variables before starting the worke
 
 The worker loads `scraper/.env` first and then `scraper/.env.local`; values in
 `.env.local` override values from `.env`. Values already provided by the process
-environment, including Docker Compose configuration, take precedence over both
-files. Both scraper environment files are ignored by Git.
+environment take precedence over both files. Both scraper environment files are
+ignored by Git.
 
 For Aleph Alpha, `ALEPH_ALPHA_BASE_URL` is the PhariaInference deployment URL;
 the adapter calls its documented `/complete/json` endpoint.
