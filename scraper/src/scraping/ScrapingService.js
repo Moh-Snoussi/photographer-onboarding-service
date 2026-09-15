@@ -15,7 +15,12 @@ export class ScrapingService {
     imageService = new ImageService(),
     heroImageService = new HeroImageService(),
     llmAdapter = null,
-    llmSystemMessage = new LlmSystemMessage(),
+    homepageLlmSystemMessage = new LlmSystemMessage({
+      filePath: new URL('../llm/homepage-system-message.md', import.meta.url),
+    }),
+    impressumLlmSystemMessage = new LlmSystemMessage({
+      filePath: new URL('../llm/impressum-system-message.md', import.meta.url),
+    }),
   }) {
     this.logger = logger;
     this.browserService = browserService;
@@ -24,10 +29,11 @@ export class ScrapingService {
     this.imageService = imageService;
     this.heroImageService = heroImageService;
     this.llmAdapter = llmAdapter;
-    this.llmSystemMessage = llmSystemMessage;
+    this.homepageLlmSystemMessage = homepageLlmSystemMessage;
+    this.impressumLlmSystemMessage = impressumLlmSystemMessage;
   }
 
-  async crawl(url) {
+  async crawl(url, { includeLegalText = true } = {}) {
     const urlHost = new URL(url).host;
     const startedAt = performance.now();
     let browser;
@@ -43,7 +49,9 @@ export class ScrapingService {
         this.imageService.extract(page),
         this.legalPageService.discover(page),
       ]);
-      const legalText = await this.crawlLegalPages(browser, legalPageDetails.legalPages);
+      const legalText = includeLegalText
+        ? await this.crawlLegalPages(browser, legalPageDetails.legalPages)
+        : { Impressum: null };
       const result = {
         Hero: this.heroImageService.find(images),
         ImpressumUrl: legalPageDetails.legalPages.Impressum || null,
@@ -75,26 +83,67 @@ export class ScrapingService {
    * @throws {SmartCrawlError} - If the LLM enrichment fails or no LLM provider is configured.
    */
   async smartCrawl(url) {
-    const crawl = await this.crawl(url);
-
     if (!this.llmAdapter) {
       throw new SmartCrawlError('No LLM provider is configured for smart crawl.');
     }
 
+    let stage = 'homepage_crawl';
+    let llmPromptBytes;
+
     try {
-      const systemMessage = await this.llmSystemMessage.read({ url, crawl });
-      const llmStartedAt = performance.now();
-      const result = await this.llmAdapter.completeJson(systemMessage);
+      const homepageCrawl = await this.crawl(url, { includeLegalText: false });
+      const homepageSystemMessage = await this.homepageLlmSystemMessage.read({
+        url,
+        crawl: homepageCrawl,
+      });
+      let llmDuration = 0;
+      stage = 'homepage_llm';
+      llmPromptBytes = Buffer.byteLength(homepageSystemMessage, 'utf8');
+      const homepageLlmStartedAt = performance.now();
+      const homepageResult = this.normalizeSmartCrawlResult(
+        await this.llmAdapter.completeJson(homepageSystemMessage),
+        homepageCrawl,
+      );
+      llmDuration += performance.now() - homepageLlmStartedAt;
+      let impressumResult = { Impressum: null };
+
+      if (homepageResult.ImpressumUrl) {
+        stage = 'impressum_crawl';
+        llmPromptBytes = undefined;
+        const impressumText = await this.crawlImpressum(homepageResult.ImpressumUrl);
+        const impressumSystemMessage = await this.impressumLlmSystemMessage.read({
+          url: homepageResult.ImpressumUrl,
+          crawl: { Impressum: impressumText },
+        });
+        stage = 'impressum_llm';
+        llmPromptBytes = Buffer.byteLength(impressumSystemMessage, 'utf8');
+        const impressumLlmStartedAt = performance.now();
+        impressumResult = this.normalizeSmartCrawlResult(
+          await this.llmAdapter.completeJson(impressumSystemMessage),
+          { Impressum: impressumText },
+        );
+        llmDuration += performance.now() - impressumLlmStartedAt;
+      }
+
       return {
-        ...this.normalizeSmartCrawlResult(result, crawl),
-        llm_duration: (performance.now() - llmStartedAt) / 1000,
+        ...homepageResult,
+        ...impressumResult,
+        llm_duration: llmDuration / 1000,
       };
     } catch (error) {
       this.logger.warn('LLM enrichment failed.', {
         urlHost: new URL(url).host,
+        stage,
+        ...(llmPromptBytes === undefined ? {} : { llmPromptBytes }),
         error: error instanceof Error ? error.message : 'LLM enrichment failed',
       });
-      throw new SmartCrawlError('LLM enrichment failed.', { cause: error });
+      throw new SmartCrawlError('LLM enrichment failed.', {
+        cause: error,
+        details: {
+          stage,
+          ...(llmPromptBytes === undefined ? {} : { llmPromptBytes }),
+        },
+      });
     }
   }
 
@@ -107,6 +156,21 @@ export class ScrapingService {
       key,
       typeof result[key] === 'string' ? result[key].trim() || null : fallback[key],
     ]));
+  }
+
+  async crawlImpressum(url) {
+    if (!url) {
+      return null;
+    }
+
+    let browser;
+
+    try {
+      browser = await this.browserService.launch();
+      return await this.crawlLegalPages(browser, { Impressum: url }).then(({ Impressum }) => Impressum);
+    } finally {
+      await this.browserService.close(browser);
+    }
   }
 
   async crawlLegalPages(browser, legalPages) {

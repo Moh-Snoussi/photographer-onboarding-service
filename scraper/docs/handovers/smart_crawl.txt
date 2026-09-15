@@ -25,18 +25,22 @@ ScrapingService.smartCrawl(url).
 
 Execution flow
 --------------
-1. smartCrawl performs the normal deterministic crawl first.
+1. smartCrawl crawls only the requested homepage first, without following the
+  Impressum URL.
 2. If no LLM provider is configured, smart crawl fails with a SmartCrawlError.
-3. LlmSystemMessage reads scraper/src/llm/system-message.md and renders its
-   expressions:
+3. LlmSystemMessage reads scraper/src/llm/homepage-system-message.md and
+  renders its expressions:
    - {{url}}: the requested URL
-   - {{crawl}}: the JSON-serialized deterministic crawl object
-4. The rendered system message is the only argument passed to
+  - {{crawl}}: the JSON-serialized homepage crawl object
+4. The first rendered system message is passed to
    llmAdapter.completeJson(systemMessage).
-5. The LLM result must be a JSON object. Only non-empty string values for the
-   existing result keys are accepted; other values fall back to the deterministic
-   crawl result.
-6. If template loading, an LLM request, parsing, or result validation fails,
+5. smartCrawl visits only the normalized Impressum URL, then renders
+  scraper/src/llm/impressum-system-message.md with the extracted legal-notice
+  text and sends it in a second llmAdapter.completeJson(systemMessage) call.
+6. Each LLM result must be a JSON object. Only non-empty string values for the
+  stage's existing result keys are accepted; other values fall back to the
+  deterministic result for that stage.
+7. If template loading, an LLM request, parsing, or result validation fails,
    smartCrawl logs a warning and throws a SmartCrawlError.
 
 HTTP response contract
@@ -112,7 +116,8 @@ Relevant files
 - scraper/src/scraping/ScrapingService.js
 - scraper/src/llm/LlmAdapter.js
 - scraper/src/llm/LlmSystemMessage.js
-- scraper/src/llm/system-message.md
+- scraper/src/llm/homepage-system-message.md
+- scraper/src/llm/impressum-system-message.md
 - scraper/src/llm/HttpLlmAdapters.js
 - scraper/src/llm/createLlmAdapter.js
 - scraper/src/services/EnvironmentService.js

@@ -48,7 +48,11 @@ app.post('/smart-crawl', async (req, res) => {
       ? error.message
       : 'Unable to crawl the requested URL.';
 
-    res.status(statusCode).json({ success: false, error: message });
+    res.status(statusCode).json({
+      success: false,
+      error: message,
+      ...(error instanceof SmartCrawlError && error.details ? { details: error.details } : {}),
+    });
   }
 });
 

@@ -1,7 +1,11 @@
 import { readFile } from 'node:fs/promises';
 
 export class LlmSystemMessage {
-  constructor({ filePath = new URL('./system-message.md', import.meta.url) } = {}) {
+  constructor({ filePath } = {}) {
+    if (!filePath) {
+      throw new Error('LLM system message file path is required.');
+    }
+
     this.filePath = filePath;
   }
 

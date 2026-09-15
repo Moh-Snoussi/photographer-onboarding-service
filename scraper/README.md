@@ -70,17 +70,22 @@ content. Fields are `null` when no corresponding item is found.
 
 ## Smart crawl with an LLM
 
-`POST /smart-crawl` first performs the normal crawl, then asks the configured LLM
-to normalize only that extracted result. It returns `{ "success": true, "crawl": ... }`
-only when LLM enrichment succeeds. Missing LLM configuration and LLM failures
-return `{ "success": false, "error": "..." }` with HTTP `503`.
+`POST /smart-crawl` uses two small LLM requests rather than sending a complete
+crawl result in one request. It first crawls only the requested homepage and
+asks the LLM to normalize `Hero` and `ImpressumUrl`. It then visits only the
+resolved Impressum URL, extracts its text, and asks the LLM to normalize the
+`Impressum` field. It returns `{ "success": true, "crawl": ... }` only when
+both enrichments succeed. Missing LLM configuration and LLM failures return
+`{ "success": false, "error": "..." }` with HTTP `503`.
 
-The shared system message is read at request time from
-`src/llm/system-message.md`. Edit that file to change the LLM's instructions
-without changing provider code. It is a template expression: `{{url}}` is
-replaced with the requested URL and `{{crawl}}` with the JSON-serialized
-deterministic crawl object. The rendered system message is the only input sent
-to the LLM adapter.
+Each LLM request has a dedicated system-message template, read at request time:
+
+- `src/llm/homepage-system-message.md` for the homepage result
+- `src/llm/impressum-system-message.md` for the legal-notice text
+
+Both templates replace `{{url}}` with their current source URL and `{{crawl}}`
+with their JSON-serialized, stage-specific crawl data. The rendered system
+message is the only input sent to the LLM adapter.
 
 Set `LLM_PROVIDER` and the provider-specific variables before starting the worker:
 
