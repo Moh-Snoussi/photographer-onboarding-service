@@ -17,36 +17,46 @@ POST /smart-crawl
 Content-Type: application/json
 
 {
-  "url": "https://example.com"
+  "url": "https://example.com",
+  "allow_text_scraping": true,
+  "allow_image_scraping": true
 }
 
 The endpoint is implemented in scraper/src/server.js. It calls
-ScrapingService.smartCrawl(url).
+ScrapingService.smartCrawl(url, options). Both consent flags are optional and
+default to false. They must be JSON booleans when provided.
 
 Execution flow
 --------------
-1. smartCrawl crawls only the requested homepage first, without following the
-  Impressum URL.
-2. If no LLM provider is configured, smart crawl fails with a SmartCrawlError.
-3. LlmSystemMessage reads scraper/src/llm/homepage-system-message.md and
+1. When neither consent flag is true, smartCrawl returns `Hero`,
+  `ImpressumUrl`, and `Impressum` as null with `llm_duration: 0`; it neither
+  opens a browser nor calls an LLM.
+2. With image consent, smartCrawl inspects the requested homepage images; with
+  text consent, it discovers legal links. Neither category is inspected without
+  its corresponding consent.
+3. If at least one category is allowed and no LLM provider is configured, smart
+  crawl fails with a SmartCrawlError.
+4. LlmSystemMessage reads scraper/src/llm/homepage-system-message.md and
   renders its expressions:
    - {{url}}: the requested URL
   - {{crawl}}: the JSON-serialized homepage crawl object
-4. The first rendered system message is passed to
+5. The first rendered system message is passed to
    llmAdapter.completeJson(systemMessage).
-5. smartCrawl visits only the normalized Impressum URL, then renders
+6. With text consent, smartCrawl visits only the normalized Impressum URL, then renders
   scraper/src/llm/impressum-system-message.md with the extracted legal-notice
   text and sends it in a second llmAdapter.completeJson(systemMessage) call.
-6. Each LLM result must be a JSON object. Only non-empty string values for the
+7. Each LLM result must be a JSON object. Only non-empty string values for the
   stage's existing result keys are accepted; other values fall back to the
-  deterministic result for that stage.
-7. If template loading, an LLM request, parsing, or result validation fails,
+  deterministic result for that stage. Fields without category consent remain
+  null even when returned by the LLM.
+8. If template loading, an LLM request, parsing, or result validation fails,
    smartCrawl logs a warning and throws a SmartCrawlError.
 
 HTTP response contract
 ----------------------
 Successful smart crawls return HTTP 200. The `llm_duration` field is a numeric
-duration in seconds for the LLM provider call:
+duration in seconds for LLM provider calls. It is zero when neither scraping
+category is allowed:
 
   { "success": true, "crawl": { "Hero": "...", "ImpressumUrl": "...", "Impressum": "...", "llm_duration": 1.234 } }
 

@@ -76,13 +76,31 @@ content. Fields are `null` when no corresponding item is found.
 
 ## Smart crawl with an LLM
 
-`POST /smart-crawl` uses two small LLM requests rather than sending a complete
-crawl result in one request. It first crawls only the requested homepage and
-asks the LLM to normalize `Hero` and `ImpressumUrl`. It then visits only the
-resolved Impressum URL, extracts its text, and asks the LLM to normalize the
-`Impressum` field. It returns `{ "success": true, "crawl": ... }` only when
-both enrichments succeed. Missing LLM configuration and LLM failures return
+`POST /smart-crawl` requires explicit consent for each category. Omitted flags
+default to `false`. With `allow_image_scraping: true`, it inspects homepage
+images and returns a hero candidate. With `allow_text_scraping: true`, it
+discovers legal links, visits the resolved Impressum URL, extracts its text, and
+uses the LLM to normalize it. Disabled categories are not inspected, downloaded,
+or returned, even when an LLM response contains values for them.
+
+The worker returns `{ "success": true, "crawl": ... }` when enrichment
+succeeds. Missing LLM configuration and LLM failures return
 `{ "success": false, "error": "..." }` with HTTP `503`.
+
+When both flags are omitted or `false`, smart crawl does not open a browser or
+call an LLM. It returns:
+
+```json
+{
+  "success": true,
+  "crawl": {
+    "Hero": null,
+    "ImpressumUrl": null,
+    "Impressum": null,
+    "llm_duration": 0
+  }
+}
+```
 
 Each LLM request has a dedicated system-message template, read at request time:
 
@@ -113,7 +131,7 @@ the adapter calls its documented `/complete/json` endpoint.
 curl -X POST http://localhost:3001/smart-crawl \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer your-onboarding-api-token' \
-  -d '{"url":"https://example.com"}'
+  -d '{"url":"https://example.com","allow_text_scraping":true,"allow_image_scraping":true}'
 ```
 
 ## Logs and Troubleshooting

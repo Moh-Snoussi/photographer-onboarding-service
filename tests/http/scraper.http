@@ -23,7 +23,9 @@ Accept: application/json
 Authorization: Bearer {{onboardingApiToken}}
 
 {
-	"url": "https://vfst.de"
+	"url": "https://www.arbeitsagentur.de",
+	"allow_text_scraping": true,
+	"allow_image_scraping": true
 }
 
 ### Reject a request without an HTTP(S) URL.
