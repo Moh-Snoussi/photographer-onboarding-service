@@ -19,7 +19,7 @@ Content-Type: application/json
 Accept: application/json
 
 {
-	"url": "https://google.com"
+	"url": "https://vfst.de"
 }
 
 ### Reject a request without an HTTP(S) URL.

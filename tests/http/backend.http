@@ -8,7 +8,7 @@ Accept: application/json
 Authorization: Bearer {{onboardingApiToken}}
 
 {
-	"url": "https://example.com",
+	"url": "https://vfst.de",
 	"allowTextScraping": true,
 	"allowImageScraping": false
 }

@@ -1,0 +1,57 @@
+@ollamaBaseUrl = http://127.0.0.1:11434
+@ollamaModel = qwen3:1.7b
+@ollamaExternalBaseUrl = http://35.157.44.11:11435
+@ollamaExternalApiKey = change-me-to-an-external-api-key
+@ollamaExternalModel = llama3.2:1b
+
+### Verify that the local Ollama API is available.
+GET {{ollamaBaseUrl}}/
+Accept: application/json
+
+### List locally installed models and verify that {{ollamaModel}} is available.
+GET {{ollamaBaseUrl}}/api/tags
+Accept: application/json
+
+### Generate a JSON response using the same endpoint and response mode as the scraper.
+POST {{ollamaBaseUrl}}/api/chat
+Content-Type: application/json
+Accept: application/json
+
+{
+  "model": "{{ollamaModel}}",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Respond with only a valid JSON object containing exactly one property: \"status\" with the string value \"ok\"."
+    }
+  ],
+  "format": "json",
+  "stream": false,
+  "think": false,
+  "options": {
+    "temperature": 0
+  }
+}
+
+### Verify that the *external* Ollama API is reachable (secured).
+# Notes:
+# - Set `ollamaExternalBaseUrl` to your deployed endpoint (e.g. https://ollama.your-domain.com).
+# - If you protect the endpoint with a proxy, add your auth headers here.
+GET {{ollamaExternalBaseUrl}}/api/version
+Accept: application/json
+Authorization: Bearer {{ollamaExternalApiKey}}
+
+### Run a minimal external chat request (non-streaming JSON).
+POST {{ollamaExternalBaseUrl}}/api/chat
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{ollamaExternalApiKey}}
+
+{
+  "model": "{{ollamaExternalModel}}",
+  "messages": [
+    { "role": "system", "content": "Respond with only: ok" }
+  ],
+  "stream": false,
+  "options": { "temperature": 0 }
+}
