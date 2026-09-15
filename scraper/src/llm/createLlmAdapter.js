@@ -11,6 +11,7 @@ export function createLlmAdapter(environment = process.env) {
     case 'ollama':
       return new OllamaAdapter({
         baseUrl: environment.OLLAMA_BASE_URL || 'http://localhost:11434',
+        apiKey: environment.OLLAMA_API_KEY,
         model: required(environment, 'LLM_MODEL'),
       });
     case 'xai':

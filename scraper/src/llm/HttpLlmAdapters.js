@@ -1,17 +1,23 @@
 import { LlmAdapter } from './LlmAdapter.js';
 
 export class OllamaAdapter extends LlmAdapter {
-  constructor({ baseUrl, model, fetchImpl = fetch }) {
+  constructor({ baseUrl, apiKey, model, fetchImpl = fetch }) {
     super();
     this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
     this.model = model;
     this.fetch = fetchImpl;
   }
 
   async completeJson(systemMessage) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.apiKey) {
+      headers.Authorization = `Bearer ${this.apiKey}`;
+    }
+
     const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: this.model,
         messages: [{ role: 'system', content: systemMessage }],
