@@ -9,6 +9,7 @@ while retaining the existing result shape:
 - Hero
 - ImpressumUrl
 - Impressum
+- llm_duration (LLM provider call duration in seconds)
 
 API
 ---
@@ -40,9 +41,10 @@ Execution flow
 
 HTTP response contract
 ----------------------
-Successful smart crawls return HTTP 200:
+Successful smart crawls return HTTP 200. The `llm_duration` field is a numeric
+duration in seconds for the LLM provider call:
 
-  { "success": true, "crawl": { "Hero": "...", "ImpressumUrl": "...", "Impressum": "..." } }
+  { "success": true, "crawl": { "Hero": "...", "ImpressumUrl": "...", "Impressum": "...", "llm_duration": 1.234 } }
 
 Invalid URLs return HTTP 422 and unavailable or failed LLM enrichment returns
 HTTP 503. Both failure responses have this shape:
