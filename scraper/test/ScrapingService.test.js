@@ -9,6 +9,29 @@ const crawlResult = {
   Impressum: 'Studio Example GmbH',
 };
 
+test('crawl skips image extraction and legal-link discovery when disabled', async () => {
+  const page = { evaluate: async () => 'https://photographer.example/' };
+  const service = new ScrapingService({
+    logger: { warn() {}, crawlStarted() {}, crawlCompleted() {}, crawlFailed() {} },
+    browserService: {
+      launch: async () => ({}),
+      createPage: async () => page,
+      visit: async () => {},
+      close: async () => {},
+    },
+    imageService: { extract: async () => assert.fail('image extraction must not be called') },
+    legalPageService: { discover: async () => assert.fail('legal-link discovery must not be called') },
+  });
+
+  const result = await service.crawl('https://photographer.example', {
+    includeLegalText: false,
+    includeImages: false,
+    discoverLegalPages: false,
+  });
+
+  assert.deepEqual(result, { Hero: null, ImpressumUrl: null, Impressum: null });
+});
+
 test('smartCrawl enriches the deterministic crawl with an LLM adapter', async () => {
   const systemMessages = [];
   const service = createService({
@@ -21,7 +44,11 @@ test('smartCrawl enriches the deterministic crawl with an LLM adapter', async ()
   });
   service.crawl = async (url, options) => {
     assert.equal(url, 'https://photographer.example');
-    assert.deepEqual(options, { includeLegalText: false });
+    assert.deepEqual(options, {
+      includeLegalText: false,
+      includeImages: true,
+      discoverLegalPages: true,
+    });
     return { ...crawlResult, Impressum: null };
   };
   service.crawlImpressum = async (url) => {
@@ -29,7 +56,10 @@ test('smartCrawl enriches the deterministic crawl with an LLM adapter', async ()
     return crawlResult.Impressum;
   };
 
-  const result = await service.smartCrawl('https://photographer.example');
+  const result = await service.smartCrawl('https://photographer.example', {
+    allowTextScraping: true,
+    allowImageScraping: true,
+  });
 
   assert.equal(result.Impressum, 'Studio Example GmbH, Berlin');
   assert.equal(typeof result.llm_duration, 'number');
@@ -56,10 +86,27 @@ test('smartCrawl skips legal-notice enrichment when no Impressum URL is found', 
   service.crawl = async () => ({ Hero: crawlResult.Hero, ImpressumUrl: null, Impressum: null });
   service.crawlImpressum = async () => assert.fail('crawlImpressum must not be called without a URL');
 
-  const result = await service.smartCrawl('https://photographer.example');
+  const result = await service.smartCrawl('https://photographer.example', { allowTextScraping: true });
 
   assert.equal(result.Impressum, null);
   assert.equal(systemMessages.length, 1);
+});
+
+test('smartCrawl skips crawling and LLM enrichment without consent', async () => {
+  const service = createService({
+    async completeJson() { assert.fail('LLM enrichment must not be called without consent'); },
+  });
+  service.crawl = async () => assert.fail('crawl must not be called without consent');
+  service.crawlImpressum = async () => assert.fail('crawlImpressum must not be called without text consent');
+
+  const result = await service.smartCrawl('https://photographer.example');
+
+  assert.deepEqual(result, {
+    Hero: null,
+    ImpressumUrl: null,
+    Impressum: null,
+    llm_duration: 0,
+  });
 });
 
 test('smartCrawl fails when LLM output is invalid', async () => {
@@ -72,7 +119,7 @@ test('smartCrawl fails when LLM output is invalid', async () => {
   service.crawl = async () => crawlResult;
 
   await assert.rejects(
-    service.smartCrawl('https://photographer.example'),
+    service.smartCrawl('https://photographer.example', { allowImageScraping: true }),
     (error) => {
       assert.ok(error instanceof SmartCrawlError);
       assert.equal(error.details.stage, 'homepage_llm');
@@ -91,7 +138,7 @@ test('smartCrawl fails when no LLM provider is configured', async () => {
   service.crawl = async () => crawlResult;
 
   await assert.rejects(
-    service.smartCrawl('https://photographer.example'),
+    service.smartCrawl('https://photographer.example', { allowImageScraping: true }),
     SmartCrawlError,
   );
 });

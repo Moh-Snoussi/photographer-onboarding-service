@@ -36,15 +36,30 @@ app.post('/crawl', async (req, res) => {
 });
 
 app.post('/smart-crawl', async (req, res) => {
-  const { url } = req.body ?? {};
+  const {
+    url,
+    allow_text_scraping: allowTextScraping = false,
+    allow_image_scraping: allowImageScraping = false,
+  } = req.body ?? {};
 
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
     logger.warn('Smart crawl request rejected.', { reason: 'invalid_url' });
     return res.status(422).json({ success: false, error: 'A valid http(s) URL is required.' });
   }
 
+  if (typeof allowTextScraping !== 'boolean' || typeof allowImageScraping !== 'boolean') {
+    logger.warn('Smart crawl request rejected.', { reason: 'invalid_consent_flags' });
+    return res.status(422).json({
+      success: false,
+      error: 'allow_text_scraping and allow_image_scraping must be booleans.',
+    });
+  }
+
   try {
-    res.json({ success: true, crawl: await scrapingService.smartCrawl(url) });
+    res.json({
+      success: true,
+      crawl: await scrapingService.smartCrawl(url, { allowTextScraping, allowImageScraping }),
+    });
   } catch (error) {
     const statusCode = error instanceof SmartCrawlError ? 503 : 502;
     const message = error instanceof SmartCrawlError

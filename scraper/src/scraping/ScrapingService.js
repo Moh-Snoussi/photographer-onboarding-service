@@ -33,7 +33,7 @@ export class ScrapingService {
     this.impressumLlmSystemMessage = impressumLlmSystemMessage;
   }
 
-  async crawl(url, { includeLegalText = true } = {}) {
+  async crawl(url, { includeLegalText = true, includeImages = true, discoverLegalPages = true } = {}) {
     const urlHost = new URL(url).host;
     const startedAt = performance.now();
     let browser;
@@ -46,8 +46,8 @@ export class ScrapingService {
 
       const [resolvedUrl, images, legalPageDetails] = await Promise.all([
         page.evaluate(() => location.href),
-        this.imageService.extract(page),
-        this.legalPageService.discover(page),
+        includeImages ? this.imageService.extract(page) : [],
+        discoverLegalPages ? this.legalPageService.discover(page) : { links: [], legalPages: {} },
       ]);
       const legalText = includeLegalText
         ? await this.crawlLegalPages(browser, legalPageDetails.legalPages)
@@ -82,7 +82,16 @@ export class ScrapingService {
    * @returns {Promise<Object>} - The enriched crawl result.
    * @throws {SmartCrawlError} - If the LLM enrichment fails or no LLM provider is configured.
    */
-  async smartCrawl(url) {
+  async smartCrawl(url, { allowTextScraping = false, allowImageScraping = false } = {}) {
+    if (!allowTextScraping && !allowImageScraping) {
+      return {
+        Hero: null,
+        ImpressumUrl: null,
+        Impressum: null,
+        llm_duration: 0,
+      };
+    }
+
     if (!this.llmAdapter) {
       throw new SmartCrawlError('No LLM provider is configured for smart crawl.');
     }
@@ -91,7 +100,11 @@ export class ScrapingService {
     let llmPromptBytes;
 
     try {
-      const homepageCrawl = await this.crawl(url, { includeLegalText: false });
+      const homepageCrawl = await this.crawl(url, {
+        includeLegalText: false,
+        includeImages: allowImageScraping,
+        discoverLegalPages: allowTextScraping,
+      });
       const homepageSystemMessage = await this.homepageLlmSystemMessage.read({
         url,
         crawl: homepageCrawl,
@@ -100,14 +113,19 @@ export class ScrapingService {
       stage = 'homepage_llm';
       llmPromptBytes = Buffer.byteLength(homepageSystemMessage, 'utf8');
       const homepageLlmStartedAt = performance.now();
-      const homepageResult = this.normalizeSmartCrawlResult(
+      const normalizedHomepageResult = this.normalizeSmartCrawlResult(
         await this.llmAdapter.completeJson(homepageSystemMessage),
         homepageCrawl,
       );
+      const homepageResult = {
+        ...normalizedHomepageResult,
+        ...(allowImageScraping ? {} : { Hero: null }),
+        ...(allowTextScraping ? {} : { ImpressumUrl: null, Impressum: null }),
+      };
       llmDuration += performance.now() - homepageLlmStartedAt;
       let impressumResult = { Impressum: null };
 
-      if (homepageResult.ImpressumUrl) {
+      if (allowTextScraping && homepageResult.ImpressumUrl) {
         stage = 'impressum_crawl';
         llmPromptBytes = undefined;
         const impressumText = await this.crawlImpressum(homepageResult.ImpressumUrl);
