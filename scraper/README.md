@@ -35,12 +35,17 @@ npm start
 
 The worker listens on `http://localhost:3001`.
 
+Set `ONBOARDING_API_TOKEN` in `.env.local` or the process environment before
+starting the worker. Every route requires this value in an
+`Authorization: Bearer <token>` header.
+
 ## Verify
 
 Check that the worker is running:
 
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:3001/health \
+  -H 'Authorization: Bearer your-onboarding-api-token'
 ```
 
 Expected response:
@@ -54,6 +59,7 @@ Send a crawl request:
 ```bash
 curl -X POST http://localhost:3001/crawl \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer your-onboarding-api-token' \
   -d '{"url":"https://example.com"}'
 ```
 
@@ -106,6 +112,7 @@ the adapter calls its documented `/complete/json` endpoint.
 ```bash
 curl -X POST http://localhost:3001/smart-crawl \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer your-onboarding-api-token' \
   -d '{"url":"https://example.com"}'
 ```
 

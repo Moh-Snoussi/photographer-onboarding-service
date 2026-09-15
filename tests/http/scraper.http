@@ -1,13 +1,16 @@
 @scraperBaseUrl = http://localhost:3001
+@onboardingApiToken = change-me-to-a-long-random-secret
 
 ### Verify that the scraper worker is available.
 GET {{scraperBaseUrl}}/health
 Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
 
 ### Crawl a public page and return its hero image and discovered Impressum text.
 POST {{scraperBaseUrl}}/crawl
 Content-Type: application/json
 Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
 
 {
 	"url": "https://google.com"
@@ -17,6 +20,7 @@ Accept: application/json
 POST {{scraperBaseUrl}}/smart-crawl
 Content-Type: application/json
 Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
 
 {
 	"url": "https://vfst.de"
@@ -26,6 +30,7 @@ Accept: application/json
 POST {{scraperBaseUrl}}/crawl
 Content-Type: application/json
 Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
 
 {
 	"url": "not-a-url"
@@ -35,6 +40,7 @@ Accept: application/json
 POST {{scraperBaseUrl}}/crawl
 Content-Type: application/json
 Accept: application/json
+Authorization: Bearer {{onboardingApiToken}}
 
 {
 	"url": "https://invalid.invalid"

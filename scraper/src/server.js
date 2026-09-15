@@ -1,6 +1,7 @@
 import express from 'express';
 import { createLlmAdapter } from './llm/createLlmAdapter.js';
 import { SmartCrawlError } from './llm/SmartCrawlError.js';
+import { createApiTokenAuthenticator } from './security/createApiTokenAuthenticator.js';
 import { EnvironmentService } from './services/EnvironmentService.js';
 import { ScraperLogger } from './services/ScraperLogger.js';
 import { ScrapingService } from './scraping/ScrapingService.js';
@@ -8,8 +9,10 @@ import { ScrapingService } from './scraping/ScrapingService.js';
 const app = express();
 const logger = new ScraperLogger();
 await new EnvironmentService().load();
+const onboardingApiToken = requiredEnvironment('ONBOARDING_API_TOKEN');
 const scrapingService = new ScrapingService({ logger, llmAdapter: createLlmAdapter() });
 app.use(express.json({ limit: '64kb' }));
+app.use(createApiTokenAuthenticator(onboardingApiToken));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -59,3 +62,11 @@ app.post('/smart-crawl', async (req, res) => {
 app.listen(3001, '0.0.0.0', () => {
   logger.info('Playwright scraper listening.', { port: 3001 });
 });
+
+function requiredEnvironment(name) {
+  if (!process.env[name]) {
+    throw new Error(`${name} must be configured.`);
+  }
+
+  return process.env[name];
+}
