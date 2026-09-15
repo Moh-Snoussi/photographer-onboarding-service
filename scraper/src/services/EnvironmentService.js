@@ -1,5 +1,9 @@
 import { readFile } from 'node:fs/promises';
 
+/**
+ * Reads environment variables from .env and .env.local files and merges them with process.env.
+ * The location of the .env files should be relative to the two parent directory of this file.
+ */
 export class EnvironmentService {
   constructor({
     filePaths = [

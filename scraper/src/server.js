@@ -3,11 +3,16 @@ import { createLlmAdapter } from './llm/createLlmAdapter.js';
 import { SmartCrawlError } from './llm/SmartCrawlError.js';
 import { createApiTokenAuthenticator } from './security/createApiTokenAuthenticator.js';
 import { EnvironmentService } from './services/EnvironmentService.js';
-import { ScraperLogger } from './services/ScraperLogger.js';
+import { LoggerService } from './services/LoggerService.js';
 import { ScrapingService } from './scraping/ScrapingService.js';
 
+/**
+ * Entry file for the Playwright scraper server.
+ * Sets up the Express.js server with health check and smart crawl endpoints.
+ * Insures that all requests are authenticated using the API token.
+ */
 const app = express();
-const logger = new ScraperLogger();
+const logger = new LoggerService();
 await new EnvironmentService().load();
 const onboardingApiToken = requiredEnvironment('ONBOARDING_API_TOKEN');
 const scrapingService = new ScrapingService({ logger, llmAdapter: createLlmAdapter() });
@@ -16,23 +21,6 @@ app.use(createApiTokenAuthenticator(onboardingApiToken));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
-});
-
-app.post('/crawl', async (req, res) => {
-  const { url } = req.body ?? {};
-
-  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
-    logger.warn('Crawl request rejected.', { reason: 'invalid_url' });
-    return res.status(422).json({ error: 'A valid http(s) URL is required.' });
-  }
-
-  // const urlHost = new URL(url).host;
-
-  try {
-    res.json(await scrapingService.crawl(url));
-  } catch (error) {
-    res.status(502).json({ error: 'Unable to crawl the requested URL.' });
-  }
 });
 
 app.post('/smart-crawl', async (req, res) => {

@@ -6,16 +6,6 @@ GET {{scraperBaseUrl}}/health
 Accept: application/json
 Authorization: Bearer {{onboardingApiToken}}
 
-### Crawl a public page and return its hero image and discovered Impressum text.
-POST {{scraperBaseUrl}}/crawl
-Content-Type: application/json
-Accept: application/json
-Authorization: Bearer {{onboardingApiToken}}
-
-{
-	"url": "https://google.com"
-}
-
 ### Crawl and normalize the result through the configured LLM adapter.
 POST {{scraperBaseUrl}}/smart-crawl
 Content-Type: application/json
@@ -29,7 +19,7 @@ Authorization: Bearer {{onboardingApiToken}}
 }
 
 ### Reject a request without an HTTP(S) URL.
-POST {{scraperBaseUrl}}/crawl
+POST {{scraperBaseUrl}}/smart-crawl
 Content-Type: application/json
 Accept: application/json
 Authorization: Bearer {{onboardingApiToken}}
@@ -39,11 +29,12 @@ Authorization: Bearer {{onboardingApiToken}}
 }
 
 ### Return a gateway error when the page cannot be reached.
-POST {{scraperBaseUrl}}/crawl
+POST {{scraperBaseUrl}}/smart-crawl
 Content-Type: application/json
 Accept: application/json
 Authorization: Bearer {{onboardingApiToken}}
 
 {
-	"url": "https://invalid.invalid"
+	"url": "https://invalid.invalid",
+	"allow_image_scraping": true
 }

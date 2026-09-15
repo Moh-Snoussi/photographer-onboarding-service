@@ -1,4 +1,8 @@
-export class ScraperLogger {
+/**
+ * A simple logger service that provides logging in the terminal.
+ * Provides methods for logging information, warnings, and errors, as well as specialized methods for logging the start, completion, and failure of web crawls.
+ */
+export class LoggerService {
   info(message, context = {}) {
     this.write('info', message, context);
   }

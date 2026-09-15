@@ -38,14 +38,16 @@ npm run dev
 
 Scraper API: `http://localhost:3001`
 
-## Example request
+## Smart crawl request
 
 ```bash
-curl -X POST http://localhost:3001/crawl \
+curl -X POST http://localhost:3001/smart-crawl \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer change-me-to-a-long-random-secret' \
   -d '{
-    "url": "https://example.com"
+    "url": "https://example.com",
+    "allow_text_scraping": true,
+    "allow_image_scraping": true
   }'
 ```
 

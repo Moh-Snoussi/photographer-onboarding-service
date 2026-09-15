@@ -1,8 +1,8 @@
 # Playwright Scraper Worker
 
 This service exposes a small HTTP API that uses Playwright to render a
-photographer website and return its homepage hero image and text from a
-discovered Impressum page.
+website, extract consented data, and normalize the result through a configured
+LLM.
 
 ## Prerequisites
 
@@ -52,26 +52,6 @@ Expected response:
 
 ```json
 {"status":"ok"}
-```
-
-Send a crawl request:
-
-```bash
-curl -X POST http://localhost:3001/crawl \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer your-onboarding-api-token' \
-  -d '{"url":"https://example.com"}'
-```
-
-The response includes the discovered hero image, Impressum URL, and Impressum
-content. Fields are `null` when no corresponding item is found.
-
-```json
-{
-  "Hero": "https://example.com/hero.jpg",
-  "ImpressumUrl": "https://example.com/impressum",
-  "Impressum": "Legal notice text..."
-}
 ```
 
 ## Smart crawl with an LLM
