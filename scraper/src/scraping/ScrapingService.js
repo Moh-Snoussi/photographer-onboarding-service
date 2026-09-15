@@ -83,8 +83,12 @@ export class ScrapingService {
 
     try {
       const systemMessage = await this.llmSystemMessage.read({ url, crawl });
+      const llmStartedAt = performance.now();
       const result = await this.llmAdapter.completeJson(systemMessage);
-      return this.normalizeSmartCrawlResult(result, crawl);
+      return {
+        ...this.normalizeSmartCrawlResult(result, crawl),
+        llm_duration: (performance.now() - llmStartedAt) / 1000,
+      };
     } catch (error) {
       this.logger.warn('LLM enrichment failed.', {
         urlHost: new URL(url).host,

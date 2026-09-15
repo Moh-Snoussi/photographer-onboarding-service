@@ -22,6 +22,9 @@ test('smartCrawl enriches the deterministic crawl with an LLM adapter', async ()
   const result = await service.smartCrawl('https://photographer.example');
 
   assert.equal(result.Impressum, 'Studio Example GmbH, Berlin');
+  assert.equal(typeof result.llm_duration, 'number');
+  assert.equal(Number.isFinite(result.llm_duration), true);
+  assert.ok(result.llm_duration >= 0);
   assert.match(systemMessages[0], /normalize extracted photographer website crawl data/i);
   assert.match(systemMessages[0], /https:\/\/photographer\.example/);
   assert.match(systemMessages[0], /Studio Example GmbH/);
