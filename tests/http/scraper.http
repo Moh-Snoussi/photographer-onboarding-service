@@ -13,7 +13,7 @@ Accept: application/json
 Authorization: Bearer {{onboardingApiToken}}
 
 {
-	"url": "https://www.arbeitsagentur.de",
+	"url": "https://www.simple-web-solutions.de",
 	"allow_text_scraping": true,
 	"allow_image_scraping": true
 }

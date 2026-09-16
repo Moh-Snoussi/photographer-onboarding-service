@@ -1,7 +1,7 @@
 @ollamaBaseUrl = http://127.0.0.1:11434
 @ollamaModel = qwen3:1.7b
 @ollamaExternalBaseUrl = http://35.157.44.11:11435
-@ollamaExternalApiKey = change-me-to-an-external-api-key
+@ollamaExternalApiKey = 6b7967b31e56f929ceae13e28d8e80901f99e28a66194177940ee94a2c196226
 @ollamaExternalModel = llama3.2:1b
 
 ### Verify that the local Ollama API is available.

@@ -2,7 +2,7 @@
 
 An authenticated Node.js service for extracting photographer website data. It
 uses Playwright to render public pages, identifies a homepage hero image,
-discovers the Impressum page, and returns extracted legal-notice text. Optional
+discovers the Impressum page, and returns extracted legal-notice text.
 LLM enrichment runs through a privately deployed Ollama server.
 
 ## Architecture
@@ -20,7 +20,7 @@ Playwright scraper (:3001)
     +--> optional private Ollama server (:11434)
 ```
 
-The scraper is the only application service. The [`scraper/`](scraper) folder
+The [`scraper/`](scraper) folder
 contains the HTTP API; [`ollama/`](ollama) contains standalone Linux
 installation and systemd files for the optional local model server.
 
