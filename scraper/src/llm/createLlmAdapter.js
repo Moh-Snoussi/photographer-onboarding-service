@@ -1,6 +1,7 @@
 import { AlephAlphaAdapter, OllamaAdapter, OpenAiCompatibleAdapter } from './HttpLlmAdapters.js';
+import { FixtureAdapter } from './FixtureAdapter.js';
 
-export function createLlmAdapter(environment = process.env) {
+export function createLlmAdapter(environment = process.env, logger = null) {
   const provider = environment.LLM_PROVIDER;
 
   if (!provider) {
@@ -8,11 +9,16 @@ export function createLlmAdapter(environment = process.env) {
   }
 
   switch (provider.toLowerCase()) {
+    case 'fixture':
+    case 'fixtures':
+    case 'mock':
+      return new FixtureAdapter({ delayMs: Number(environment.FIXTURE_DELAY_MS || 0), logger });
     case 'ollama':
       return new OllamaAdapter({
         baseUrl: environment.OLLAMA_BASE_URL || 'http://localhost:11434',
         apiKey: environment.OLLAMA_API_KEY,
         model: required(environment, 'LLM_MODEL'),
+        logger,
       });
     case 'xai':
     case 'grok':
@@ -21,6 +27,7 @@ export function createLlmAdapter(environment = process.env) {
         apiKey: required(environment, 'XAI_API_KEY'),
         model: required(environment, 'LLM_MODEL'),
         providerName: 'xAI',
+        logger,
       });
     case 'aleph-alpha':
     case 'alephalpha':
@@ -28,6 +35,7 @@ export function createLlmAdapter(environment = process.env) {
         baseUrl: required(environment, 'ALEPH_ALPHA_BASE_URL'),
         apiKey: required(environment, 'ALEPH_ALPHA_API_KEY'),
         model: required(environment, 'LLM_MODEL'),
+        logger,
       });
     default:
       throw new Error(`Unsupported LLM_PROVIDER: ${provider}.`);

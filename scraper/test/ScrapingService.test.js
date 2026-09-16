@@ -4,7 +4,10 @@ import { SmartCrawlError } from '../src/llm/SmartCrawlError.js';
 import { ScrapingService } from '../src/scraping/ScrapingService.js';
 
 const crawlResult = {
-  Hero: 'https://photographer.example/hero.jpg',
+  images: {
+    logo: 'https://photographer.example/logo.svg',
+    hero: [{ src: 'https://photographer.example/hero.jpg', alt: 'Studio portrait', isHero: true }],
+  },
   ImpressumUrl: 'https://photographer.example/impressum',
   Impressum: 'Studio Example GmbH',
 };
@@ -12,7 +15,7 @@ const crawlResult = {
 test('crawl skips image extraction and legal-link discovery when disabled', async () => {
   const page = { evaluate: async () => 'https://photographer.example/' };
   const service = new ScrapingService({
-    logger: { warn() {}, crawlStarted() {}, crawlCompleted() {}, crawlFailed() {} },
+    logger: { info() {}, warn() {}, error() {}, debug() {} },
     browserService: {
       launch: async () => ({}),
       createPage: async () => page,
@@ -29,7 +32,7 @@ test('crawl skips image extraction and legal-link discovery when disabled', asyn
     discoverLegalPages: false,
   });
 
-  assert.deepEqual(result, { Hero: null, ImpressumUrl: null, Impressum: null });
+  assert.deepEqual(result, { images: null, ImpressumUrl: null, Impressum: null });
 });
 
 test('smartCrawl enriches the deterministic crawl with an LLM adapter', async () => {
@@ -62,6 +65,7 @@ test('smartCrawl enriches the deterministic crawl with an LLM adapter', async ()
   });
 
   assert.equal(result.Impressum, 'Studio Example GmbH, Berlin');
+  assert.deepEqual(result.images, crawlResult.images);
   assert.equal(typeof result.llm_duration, 'number');
   assert.equal(Number.isFinite(result.llm_duration), true);
   assert.ok(result.llm_duration >= 0);
@@ -80,10 +84,10 @@ test('smartCrawl skips legal-notice enrichment when no Impressum URL is found', 
   const service = createService({
     async completeJson(systemMessage) {
       systemMessages.push(systemMessage);
-      return { Hero: crawlResult.Hero, ImpressumUrl: null };
+      return { images: crawlResult.images, ImpressumUrl: null };
     },
   });
-  service.crawl = async () => ({ Hero: crawlResult.Hero, ImpressumUrl: null, Impressum: null });
+  service.crawl = async () => ({ images: crawlResult.images, ImpressumUrl: null, Impressum: null });
   service.crawlImpressum = async () => assert.fail('crawlImpressum must not be called without a URL');
 
   const result = await service.smartCrawl('https://photographer.example', { allowTextScraping: true });
@@ -102,7 +106,7 @@ test('smartCrawl skips crawling and LLM enrichment without consent', async () =>
   const result = await service.smartCrawl('https://photographer.example');
 
   assert.deepEqual(result, {
-    Hero: null,
+    images: null,
     ImpressumUrl: null,
     Impressum: null,
     llm_duration: 0,
@@ -145,7 +149,7 @@ test('smartCrawl fails when no LLM provider is configured', async () => {
 
 function createService(llmAdapter, logger = {}) {
   return new ScrapingService({
-    logger: { warn() {}, crawlStarted() {}, crawlCompleted() {}, crawlFailed() {}, ...logger },
+    logger: { info() {}, warn() {}, error() {}, debug() {}, ...logger },
     llmAdapter,
   });
 }

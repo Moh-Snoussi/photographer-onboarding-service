@@ -58,7 +58,8 @@ Expected response:
 
 `POST /smart-crawl` requires explicit consent for each category. Omitted flags
 default to `false`. With `allow_image_scraping: true`, it inspects homepage
-images and returns a hero candidate. With `allow_text_scraping: true`, it
+images and returns an `images` object containing a detected `logo` URL and all
+image candidates in `hero`. With `allow_text_scraping: true`, it
 discovers legal links, visits the resolved Impressum URL, extracts its text, and
 uses the LLM to normalize it. Disabled categories are not inspected, downloaded,
 or returned, even when an LLM response contains values for them.
@@ -74,7 +75,7 @@ call an LLM. It returns:
 {
   "success": true,
   "crawl": {
-    "Hero": null,
+    "images": null,
     "ImpressumUrl": null,
     "Impressum": null,
     "llm_duration": 0
@@ -116,9 +117,23 @@ curl -X POST http://localhost:3001/smart-crawl \
 
 ## Logs and Troubleshooting
 
-The worker writes structured JSON logs to standard output. A failed browser
-launch or navigation is logged with its original error message and returned as
-HTTP `502` with a safe client-facing error body.
+The worker writes structured JSON-lines logs to standard output and, by default,
+to `logs/scraper.log`. Set `LOG_FILE` to choose a different file path.
+
+Terminal output defaults to `LOG_LEVEL=info`, which shows request validation and
+smart-crawl start, completion, and failure. The log file defaults to
+`LOG_FILE_LEVEL=debug`, preserving crawl and LLM diagnostics without adding them
+to the terminal. Set `LOG_LEVEL=debug` to see those diagnostics in the terminal.
+
+Each LLM diagnostic includes the stage, provider, model, endpoint, response
+format, prompt size, response keys, and duration. A failed request includes its
+error and duration. Set `LOG_LLM_PAYLOADS=true` to record the rendered
+system-message payload and parsed LLM response. Set `LOG_LEVEL=debug` as well
+to show those payloads in the terminal. Payload logs can contain consented crawl
+text and URLs, so enable them only where that data may be retained safely.
+
+A failed browser launch or navigation is logged with its original error message
+and returned as HTTP `502` with a safe client-facing error body.
 
 If startup or crawling reports that an executable or a shared library is
 missing, rerun the install commands above. On Debian or Ubuntu, install the

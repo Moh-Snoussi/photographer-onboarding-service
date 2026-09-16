@@ -12,10 +12,10 @@ import { ScrapingService } from './scraping/ScrapingService.js';
  * Insures that all requests are authenticated using the API token.
  */
 const app = express();
-const logger = new LoggerService();
 await new EnvironmentService().load();
+const logger = new LoggerService();
 const onboardingApiToken = requiredEnvironment('ONBOARDING_API_TOKEN');
-const scrapingService = new ScrapingService({ logger, llmAdapter: createLlmAdapter() });
+const scrapingService = new ScrapingService({ logger, llmAdapter: createLlmAdapter(process.env, logger) });
 app.use(express.json({ limit: '64kb' }));
 app.use(createApiTokenAuthenticator(onboardingApiToken));
 
@@ -29,6 +29,8 @@ app.post('/smart-crawl', async (req, res) => {
     allow_text_scraping: allowTextScraping = false,
     allow_image_scraping: allowImageScraping = false,
   } = req.body ?? {};
+
+  logger.debug('Received smart crawl request.', { url, allowTextScraping, allowImageScraping });
 
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
     logger.warn('Smart crawl request rejected.', { reason: 'invalid_url' });

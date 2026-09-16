@@ -1,39 +1,45 @@
 import { LlmAdapter } from './LlmAdapter.js';
 
 export class OllamaAdapter extends LlmAdapter {
-  constructor({ baseUrl, apiKey, model, fetchImpl = fetch }) {
-    super();
+  constructor({ baseUrl, apiKey, model, logger, fetchImpl = fetch }) {
+    super({ logger, providerName: 'Ollama', model });
     this.baseUrl = baseUrl;
     this.apiKey = apiKey;
     this.model = model;
     this.fetch = fetchImpl;
   }
 
-  async completeJson(systemMessage) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (this.apiKey) {
-      headers.Authorization = `Bearer ${this.apiKey}`;
-    }
+  async completeJson(systemMessage, context = {}) {
+    return this.completeJsonWithLogging(systemMessage, {
+      ...context,
+      endpoint: '/api/chat',
+      responseFormat: 'json',
+    }, async () => {
+      const headers = { 'Content-Type': 'application/json' };
+      if (this.apiKey) {
+        headers.Authorization = `Bearer ${this.apiKey}`;
+      }
 
-    const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/api/chat`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: 'system', content: systemMessage }],
-        format: 'json',
-        stream: false,
-        think: false,
-      }),
+      const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/api/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: 'system', content: systemMessage }],
+          format: 'json',
+          stream: false,
+          think: false,
+        }),
+      });
+      const body = await readJson(response, 'Ollama');
+      return parseCompletion(body.message?.content, 'Ollama');
     });
-    const body = await readJson(response, 'Ollama');
-    return parseCompletion(body.message?.content, 'Ollama');
   }
 }
 
 export class OpenAiCompatibleAdapter extends LlmAdapter {
-  constructor({ baseUrl, apiKey, model, fetchImpl = fetch, providerName }) {
-    super();
+  constructor({ baseUrl, apiKey, model, logger, fetchImpl = fetch, providerName }) {
+    super({ logger, providerName, model });
     this.baseUrl = baseUrl;
     this.apiKey = apiKey;
     this.model = model;
@@ -41,44 +47,56 @@ export class OpenAiCompatibleAdapter extends LlmAdapter {
     this.providerName = providerName;
   }
 
-  async completeJson(systemMessage) {
-    const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: 'system', content: systemMessage }],
-        response_format: { type: 'json_object' },
-      }),
+  async completeJson(systemMessage, context = {}) {
+    return this.completeJsonWithLogging(systemMessage, {
+      ...context,
+      endpoint: '/chat/completions',
+      responseFormat: 'json_object',
+    }, async () => {
+      const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [{ role: 'system', content: systemMessage }],
+          response_format: { type: 'json_object' },
+        }),
+      });
+      const body = await readJson(response, this.providerName);
+      return parseCompletion(body.choices?.[0]?.message?.content, this.providerName);
     });
-    const body = await readJson(response, this.providerName);
-    return parseCompletion(body.choices?.[0]?.message?.content, this.providerName);
   }
 }
 
 export class AlephAlphaAdapter extends LlmAdapter {
-  constructor({ baseUrl, apiKey, model, fetchImpl = fetch }) {
-    super();
+  constructor({ baseUrl, apiKey, model, logger, fetchImpl = fetch }) {
+    super({ logger, providerName: 'Aleph Alpha', model });
     this.baseUrl = baseUrl;
     this.apiKey = apiKey;
     this.model = model;
     this.fetch = fetchImpl;
   }
 
-  async completeJson(systemMessage) {
-    const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/complete/json`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model: this.model, prompt: systemMessage }),
+  async completeJson(systemMessage, context = {}) {
+    return this.completeJsonWithLogging(systemMessage, {
+      ...context,
+      endpoint: '/complete/json',
+      responseFormat: 'json',
+    }, async () => {
+      const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/complete/json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: this.model, prompt: systemMessage }),
+      });
+      const body = await readJson(response, 'Aleph Alpha');
+      return typeof body === 'string' ? JSON.parse(body) : body;
     });
-    const body = await readJson(response, 'Aleph Alpha');
-    return typeof body === 'string' ? JSON.parse(body) : body;
   }
 }
 

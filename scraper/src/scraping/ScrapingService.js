@@ -1,8 +1,8 @@
 import { BrowserService } from './BrowserService.js';
-import { HeroImageService } from './HeroImageService.js';
 import { ImageService } from './ImageService.js';
 import { LegalPageService } from './LegalPageService.js';
 import { LegalTextService } from './LegalTextService.js';
+import { LogoService } from './LogoService.js';
 import { LlmSystemMessage } from '../llm/LlmSystemMessage.js';
 import { SmartCrawlError } from '../llm/SmartCrawlError.js';
 
@@ -13,7 +13,7 @@ export class ScrapingService {
     legalPageService = new LegalPageService(),
     legalTextService = new LegalTextService(),
     imageService = new ImageService(),
-    heroImageService = new HeroImageService(),
+    logoService = new LogoService(),
     llmAdapter = null,
     homepageLlmSystemMessage = new LlmSystemMessage({
       filePath: new URL('../llm/homepage-system-message.md', import.meta.url),
@@ -27,7 +27,7 @@ export class ScrapingService {
     this.legalPageService = legalPageService;
     this.legalTextService = legalTextService;
     this.imageService = imageService;
-    this.heroImageService = heroImageService;
+    this.logoService = logoService;
     this.llmAdapter = llmAdapter;
     this.homepageLlmSystemMessage = homepageLlmSystemMessage;
     this.impressumLlmSystemMessage = impressumLlmSystemMessage;
@@ -39,7 +39,7 @@ export class ScrapingService {
     let browser;
 
     try {
-      this.logger.crawlStarted(urlHost);
+      this.logger.debug('Crawl started.', { urlHost });
       browser = await this.browserService.launch();
       const page = await this.browserService.createPage(browser);
       await this.browserService.visit(page, url);
@@ -53,22 +53,29 @@ export class ScrapingService {
         ? await this.crawlLegalPages(browser, legalPageDetails.legalPages)
         : { Impressum: null };
       const result = {
-        Hero: this.heroImageService.find(images),
+        images: includeImages ? {
+          logo: this.logoService.find(images),
+          hero: images,
+        } : null,
         ImpressumUrl: legalPageDetails.legalPages.Impressum || null,
         Impressum: legalText.Impressum,
       };
 
-      this.logger.crawlCompleted(
+      this.logger.debug('Crawl completed.', {
         urlHost,
-        new URL(resolvedUrl).host,
-        legalPageDetails.links.length,
-        Math.round(performance.now() - startedAt),
-      );
+        resolvedUrlHost: new URL(resolvedUrl).host,
+        linkCount: legalPageDetails.links.length,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
 
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Crawl failed';
-      this.logger.crawlFailed(urlHost, message, Math.round(performance.now() - startedAt));
+      this.logger.error('Crawl failed.', {
+        urlHost,
+        error: message,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
       throw error;
     } finally {
       await this.browserService.close(browser);
@@ -85,7 +92,7 @@ export class ScrapingService {
   async smartCrawl(url, { allowTextScraping = false, allowImageScraping = false } = {}) {
     if (!allowTextScraping && !allowImageScraping) {
       return {
-        Hero: null,
+        images: null,
         ImpressumUrl: null,
         Impressum: null,
         llm_duration: 0,
@@ -96,8 +103,16 @@ export class ScrapingService {
       throw new SmartCrawlError('No LLM provider is configured for smart crawl.');
     }
 
+
+    const startedAt = performance.now();
     let stage = 'homepage_crawl';
     let llmPromptBytes;
+    let llmCallCount = 0;
+    this.logger.info('Smart crawl started.', {
+      urlHost: new URL(url).host,
+      allowTextScraping,
+      allowImageScraping,
+    });
 
     try {
       const homepageCrawl = await this.crawl(url, {
@@ -114,16 +129,21 @@ export class ScrapingService {
       llmPromptBytes = Buffer.byteLength(homepageSystemMessage, 'utf8');
       const homepageLlmStartedAt = performance.now();
       const normalizedHomepageResult = this.normalizeSmartCrawlResult(
-        await this.llmAdapter.completeJson(homepageSystemMessage),
+        await this.llmAdapter.completeJson(homepageSystemMessage, { stage }),
         homepageCrawl,
       );
+      llmCallCount += 1;
       const homepageResult = {
         ...normalizedHomepageResult,
-        ...(allowImageScraping ? {} : { Hero: null }),
+        ...(allowImageScraping ? {} : { images: null }),
         ...(allowTextScraping ? {} : { ImpressumUrl: null, Impressum: null }),
       };
       llmDuration += performance.now() - homepageLlmStartedAt;
       let impressumResult = { Impressum: null };
+      this.logger.debug('Homepage LLM enrichment completed.', {
+        urlHost: new URL(url).host,
+        responseKeys: Object.keys(homepageResult),
+      });
 
       if (allowTextScraping && homepageResult.ImpressumUrl) {
         stage = 'impressum_crawl';
@@ -137,17 +157,25 @@ export class ScrapingService {
         llmPromptBytes = Buffer.byteLength(impressumSystemMessage, 'utf8');
         const impressumLlmStartedAt = performance.now();
         impressumResult = this.normalizeSmartCrawlResult(
-          await this.llmAdapter.completeJson(impressumSystemMessage),
+          await this.llmAdapter.completeJson(impressumSystemMessage, { stage }),
           { Impressum: impressumText },
         );
+        llmCallCount += 1;
         llmDuration += performance.now() - impressumLlmStartedAt;
       }
 
-      return {
+      const result = {
         ...homepageResult,
         ...impressumResult,
         llm_duration: llmDuration / 1000,
       };
+      this.logger.info('Smart crawl completed.', {
+        urlHost: new URL(url).host,
+        llmCallCount,
+        llmDurationMs: Math.round(llmDuration),
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      return result;
     } catch (error) {
       this.logger.warn('LLM enrichment failed.', {
         urlHost: new URL(url).host,
@@ -172,7 +200,9 @@ export class ScrapingService {
 
     return Object.fromEntries(Object.keys(fallback).map((key) => [
       key,
-      typeof result[key] === 'string' ? result[key].trim() || null : fallback[key],
+      key === 'images'
+        ? fallback.images
+        : typeof result[key] === 'string' ? result[key].trim() || null : fallback[key],
     ]));
   }
 

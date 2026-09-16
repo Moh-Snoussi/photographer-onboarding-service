@@ -6,7 +6,7 @@ Purpose
 Smart crawl enriches the deterministic Playwright crawl using a configured LLM,
 while retaining the existing result shape:
 
-- Hero
+- images: { logo, hero: [] }
 - ImpressumUrl
 - Impressum
 - llm_duration (LLM provider call duration in seconds)
@@ -28,7 +28,7 @@ default to false. They must be JSON booleans when provided.
 
 Execution flow
 --------------
-1. When neither consent flag is true, smartCrawl returns `Hero`,
+1. When neither consent flag is true, smartCrawl returns `images`,
   `ImpressumUrl`, and `Impressum` as null with `llm_duration: 0`; it neither
   opens a browser nor calls an LLM.
 2. With image consent, smartCrawl inspects the requested homepage images; with
@@ -58,7 +58,7 @@ Successful smart crawls return HTTP 200. The `llm_duration` field is a numeric
 duration in seconds for LLM provider calls. It is zero when neither scraping
 category is allowed:
 
-  { "success": true, "crawl": { "Hero": "...", "ImpressumUrl": "...", "Impressum": "...", "llm_duration": 1.234 } }
+  { "success": true, "crawl": { "images": { "logo": "...", "hero": [] }, "ImpressumUrl": "...", "Impressum": "...", "llm_duration": 1.234 } }
 
 Invalid URLs return HTTP 422 and unavailable or failed LLM enrichment returns
 HTTP 503. Both failure responses have this shape:
