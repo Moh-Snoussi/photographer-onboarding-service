@@ -20,6 +20,15 @@ export function createLlmAdapter(environment = process.env, logger = null) {
         model: required(environment, 'LLM_MODEL'),
         logger,
       });
+    case 'openai':
+    case 'open-ai':
+      return new OpenAiCompatibleAdapter({
+        baseUrl: environment.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+        apiKey: required(environment, 'OPENAI_API_KEY'),
+        model: required(environment, 'LLM_MODEL'),
+        providerName: 'OpenAI',
+        logger,
+      });
     case 'xai':
     case 'grok':
       return new OpenAiCompatibleAdapter({

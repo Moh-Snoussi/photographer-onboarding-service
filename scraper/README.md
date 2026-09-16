@@ -111,6 +111,7 @@ Set `LLM_PROVIDER` and the provider-specific variables before starting the worke
 | Provider | Required configuration |
 | --- | --- |
 | Ollama | `LLM_PROVIDER=ollama`, `LLM_MODEL`; optional `OLLAMA_BASE_URL` (defaults to `http://localhost:11434`) |
+| OpenAI | `LLM_PROVIDER=openai`, `LLM_MODEL`, `OPENAI_API_KEY`; optional `OPENAI_BASE_URL` (defaults to `https://api.openai.com/v1`). Use a JSON-capable OpenAI model such as `gpt-4o-mini`. |
 | xAI / Grok | `LLM_PROVIDER=xai`, `LLM_MODEL`, `XAI_API_KEY`; optional `XAI_BASE_URL` |
 | Aleph Alpha PhariaInference | `LLM_PROVIDER=aleph-alpha`, `LLM_MODEL`, `ALEPH_ALPHA_BASE_URL`, `ALEPH_ALPHA_API_KEY` |
 

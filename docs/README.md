@@ -4,6 +4,7 @@
   - [Architektur](wiki/architecture.md)
   - [Scraper](wiki/scraper.md)
   - [Lokales LLM](wiki/local-llm.md)
+- [LLM Adapters](llm_adapters/)
 - [Entscheidungsprotokoll](decisions/)
   - [04.09.2026: Urspruengliche Aufgabe](decisions/04-09-26_initial_task.md)
   - [10.09.2026: Zwischenstand](decisions/10-09-26_intermediate_status.md)

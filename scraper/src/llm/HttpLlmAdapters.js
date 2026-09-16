@@ -10,9 +10,12 @@ export class OllamaAdapter extends LlmAdapter {
   }
 
   async completeJson(systemMessage, context = {}) {
+    const requestUrl = `${this.baseUrl.replace(/\/$/, '')}/api/chat`;
+
     return this.completeJsonWithLogging(systemMessage, {
       ...context,
       endpoint: '/api/chat',
+      url: requestUrl,
       responseFormat: 'json',
     }, async () => {
       const headers = { 'Content-Type': 'application/json' };
@@ -20,7 +23,7 @@ export class OllamaAdapter extends LlmAdapter {
         headers.Authorization = `Bearer ${this.apiKey}`;
       }
 
-      const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/api/chat`, {
+      const response = await this.fetch(requestUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -48,12 +51,15 @@ export class OpenAiCompatibleAdapter extends LlmAdapter {
   }
 
   async completeJson(systemMessage, context = {}) {
+    const requestUrl = `${this.baseUrl.replace(/\/$/, '')}/chat/completions`;
+
     return this.completeJsonWithLogging(systemMessage, {
       ...context,
       endpoint: '/chat/completions',
+      url: requestUrl,
       responseFormat: 'json_object',
     }, async () => {
-      const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      const response = await this.fetch(requestUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
@@ -81,12 +87,15 @@ export class AlephAlphaAdapter extends LlmAdapter {
   }
 
   async completeJson(systemMessage, context = {}) {
+    const requestUrl = `${this.baseUrl.replace(/\/$/, '')}/complete/json`;
+
     return this.completeJsonWithLogging(systemMessage, {
       ...context,
       endpoint: '/complete/json',
+      url: requestUrl,
       responseFormat: 'json',
     }, async () => {
-      const response = await this.fetch(`${this.baseUrl.replace(/\/$/, '')}/complete/json`, {
+      const response = await this.fetch(requestUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
