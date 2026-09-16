@@ -1,7 +1,6 @@
 # Zwischenstand
 
 **Datum:** 10.09.2026
-**Beteiligte:** Nicht dokumentiert
 **Status:** Browserbasiertes Crawling validiert
 
 ## Status

@@ -1,7 +1,6 @@
 # Aenderung der Backend-Architektur
 
 **Datum:** 13.09.2026
-**Beteiligte:** Nicht dokumentiert
 **Status:** Symfony-Backend aus der aktuellen Architektur entfernt
 
 ## Status
