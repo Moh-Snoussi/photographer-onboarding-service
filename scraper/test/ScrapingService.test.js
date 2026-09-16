@@ -35,6 +35,30 @@ test('crawl skips image extraction and legal-link discovery when disabled', asyn
   assert.deepEqual(result, { images: null, ImpressumUrl: null, Impressum: null });
 });
 
+test('crawl returns at most five valid hero images', async () => {
+  const page = { evaluate: async () => 'https://photographer.example/' };
+  const service = new ScrapingService({
+    logger: { info() {}, warn() {}, error() {}, debug() {} },
+    browserService: {
+      launch: async () => ({}),
+      createPage: async () => page,
+      visit: async () => {},
+      close: async () => {},
+    },
+    imageService: {
+      extract: async () => Array.from({ length: 6 }, (_, index) => ({
+        src: `https://photographer.example/hero-${index}.jpg`,
+        isHero: true,
+      })),
+    },
+    legalPageService: { discover: async () => ({ links: [], legalPages: {} }) },
+  });
+
+  const result = await service.crawl('https://photographer.example', { includeLegalText: false });
+
+  assert.equal(result.images.hero.length, 5);
+});
+
 test('smartCrawl enriches the deterministic crawl with an LLM adapter', async () => {
   const systemMessages = [];
   const service = createService({

@@ -55,7 +55,7 @@ export class ScrapingService {
       const result = {
         images: includeImages ? {
           logo: this.logoService.find(images),
-          hero: images,
+          hero: images.filter((image) => image.isHero).slice(0, 5),
         } : null,
         ImpressumUrl: legalPageDetails.legalPages.Impressum || null,
         Impressum: legalText.Impressum,
