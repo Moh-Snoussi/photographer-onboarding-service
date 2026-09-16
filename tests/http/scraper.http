@@ -15,7 +15,10 @@ Authorization: Bearer {{onboardingApiToken}}
 {
 	"url": "https://www.simple-web-solutions.de",
 	"allow_text_scraping": true,
-	"allow_image_scraping": true
+	"allow_image_scraping": true,
+    "user": {
+        "jwt": "your-jwt-token-here"
+    }
 }
 
 ### Reject a request without an HTTP(S) URL.

@@ -26,6 +26,7 @@ app.get('/health', (_req, res) => {
 app.post('/smart-crawl', async (req, res) => {
   const {
     url,
+    user,
     allow_text_scraping: allowTextScraping = false,
     allow_image_scraping: allowImageScraping = false,
   } = req.body ?? {};
@@ -49,6 +50,7 @@ app.post('/smart-crawl', async (req, res) => {
     res.json({
       success: true,
       crawl: await scrapingService.smartCrawl(url, { allowTextScraping, allowImageScraping }),
+      ...(user !== undefined ? { user } : {}),
     });
   } catch (error) {
     const statusCode = error instanceof SmartCrawlError ? 503 : 502;
