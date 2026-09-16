@@ -1,17 +1,22 @@
 # Playwright Scraper Worker
 
-This service exposes a small HTTP API that uses Playwright to render a
+This service exposes a HTTP API that uses Playwright to render a
 website, extract consented data, and normalize the result through a configured
 LLM.
 
 ## Prerequisites
 
-- Node.js 20 or later
+- Node.js 24
 - npm
 - Linux package required by Chromium/Playwright:
 
 ```bash
 sudo apt install libgstreamer-plugins-bad1.0-0
+
+## IOS
+
+sudo apt install libgstreamer-plugins-bad1.0-0
+
 ```
 
 ## Install
@@ -59,10 +64,19 @@ Expected response:
 `POST /smart-crawl` requires explicit consent for each category. Omitted flags
 default to `false`. With `allow_image_scraping: true`, it inspects homepage
 images and returns an `images` object containing a detected `logo` URL and all
-image candidates in `hero`. With `allow_text_scraping: true`, it
+non-favicon image candidates in `hero`. Logo detection prioritizes images in a
+`<header>` marked with a `logo` or `brand` class or ID, then similarly marked
+images elsewhere, then image `alt` text or URLs containing `logo`. Favicon
+metadata (`icon`, `shortcut icon`, and `apple-touch-icon`) is used only as a
+final logo fallback and is not included in `hero`. With `allow_text_scraping: true`, it
 discovers legal links, visits the resolved Impressum URL, extracts its text, and
 uses the LLM to normalize it. Disabled categories are not inspected, downloaded,
 or returned, even when an LLM response contains values for them.
+
+Hero candidates are limited to images visible above the fold or located in one
+of the first three large page containers. They must be at least `800x600` in
+their natural resolution; SVG files and transparent PNGs are excluded. The
+response returns at most the first five eligible hero images.
 
 The worker returns `{ "success": true, "crawl": ... }` when enrichment
 succeeds. Missing LLM configuration and LLM failures return

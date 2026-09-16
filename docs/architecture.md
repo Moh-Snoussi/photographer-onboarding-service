@@ -15,12 +15,13 @@ API client
 Node.js scraper (:3001)
 	|
 	+--> Playwright page rendering and extraction
-	|     +--> hero image detection
+	|     +--> logo and hero image detection
 	|     +--> Impressum link discovery and text extraction
 	|
-	+--> Optional private Ollama API (:11434)
+	+--> LLM API
 		  +--> homepage normalization
 		  +--> Impressum-text normalization
+	+--> Response Generation
 ```
 
 All scraper routes, including `/health`, require the bearer token. The token is
@@ -33,6 +34,30 @@ endpoint.
 Playwright has first-class Node.js support and gives us reliable access to the
 rendered DOM, element geometry, CSS backgrounds, network requests, and
 JavaScript-heavy websites.
+
+## Logo Extraction
+
+When image scraping is consented to, `ImageService` reads rendered `<img>`
+elements and favicon metadata from the document. `LogoService` selects a logo
+in this order:
+
+1. An image inside `<header>` whose own or ancestor class or ID contains
+	`logo` or `brand`.
+2. A similarly marked image outside the header.
+3. An image whose `alt` text or URL contains `logo`.
+4. A favicon declared through `icon`, `shortcut icon`, or `apple-touch-icon`
+	metadata.
+
+Favicon candidates are considered only for the `images.logo` fallback; they
+are excluded from `images.hero`.
+
+## Hero Image Extraction
+
+Hero candidates must be visible above the fold or belong to one of the first
+three rendered page containers that are at least `800x600`. Candidates must
+also have a natural resolution of at least `800x600`; SVG files and transparent
+PNGs are excluded. The scraper returns the first five eligible candidates in
+`images.hero`.
 
 ## Repository components
 
