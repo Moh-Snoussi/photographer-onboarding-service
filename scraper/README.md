@@ -1,89 +1,355 @@
 # Playwright Scraper Worker
 
-This service exposes a HTTP API that uses Playwright to render a
-website, extract consented data, and normalize the result through a configured
-LLM.
+Der Playwright Scraper Worker ist ein Node.js-Service mit HTTP-API zur automatisierten Analyse öffentlich erreichbarer Webseiten.
 
-## Prerequisites
+Der Service verwendet Playwright mit Chromium, um Webseiten vollständig zu rendern, freigegebene Inhalte zu extrahieren und die Ergebnisse anschließend über einen konfigurierten LLM-Provider aufzubereiten.
 
-- Node.js 24
-- npm
-- Linux package required by Chromium/Playwright:
+Welche Inhalte verarbeitet werden dürfen, wird pro Request über explizite Consent-Flags gesteuert.
+
+## Voraussetzungen
+
+Benötigt werden:
+
+* Node.js 24
+* npm
+* Chromium-Abhängigkeiten für Playwright
+
+### Linux
+
+Unter Debian beziehungsweise Ubuntu kann die benötigte GStreamer-Bibliothek installiert werden mit:
 
 ```bash
 sudo apt install libgstreamer-plugins-bad1.0-0
-
-## IOS
-
-sudo apt install libgstreamer-plugins-bad1.0-0
-
 ```
 
-## Install
+Weitere benötigte Browser-Abhängigkeiten können von Playwright automatisch installiert werden:
 
-From this directory, install the application dependencies and download the
-Playwright browser binary:
+```bash
+npx playwright install-deps
+```
+
+### macOS
+
+Unter macOS werden keine `apt`-Pakete benötigt.
+
+Nach der Installation von Node.js können die Playwright-Abhängigkeiten direkt installiert werden:
 
 ```bash
 npm install
 npx playwright install
 ```
 
-`npm install` installs the Playwright JavaScript package. `npx playwright
-install` downloads Chromium, which is a separate required step.
+### iOS
 
-## Run
+Der Scraper Worker ist nicht für die direkte Ausführung unter iOS vorgesehen.
+
+Er benötigt eine Node.js-Laufzeit sowie einen von Playwright unterstützten Browser. Der Service sollte daher auf Linux, macOS oder einer entsprechenden Serverumgebung betrieben werden.
+
+## Installation
+
+Im Verzeichnis `scraper/` zunächst die Node.js-Abhängigkeiten installieren:
+
+```bash
+npm install
+```
+
+Danach den von Playwright benötigten Chromium-Browser installieren:
+
+```bash
+npx playwright install
+```
+
+`npm install` installiert die JavaScript-Abhängigkeiten des Projekts.
+
+`npx playwright install` lädt zusätzlich die benötigten Browser-Binaries herunter. Dieser Schritt ist separat erforderlich.
+
+Unter Linux können bei Bedarf Browser und Systemabhängigkeiten gemeinsam installiert werden:
+
+```bash
+npx playwright install --with-deps
+```
+
+## Konfiguration
+
+Der Worker lädt seine Konfiguration aus folgenden Quellen:
+
+1. Prozess-Umgebung
+2. `.env.local`
+3. `.env`
+
+Bereits gesetzte Umgebungsvariablen haben die höchste Priorität.
+
+Werte aus `.env.local` überschreiben Werte aus `.env`.
+
+Beide Dateien werden nicht in Git eingecheckt.
+
+### API-Authentifizierung
+
+Vor dem Start muss ein API-Token definiert werden:
+
+```env
+ONBOARDING_API_TOKEN=your-secure-random-token
+```
+
+Jeder API-Request muss diesen Token als Bearer Token mitsenden:
+
+```text
+Authorization: Bearer <token>
+```
+
+Für produktive Umgebungen sollte ein zufällig erzeugtes Secret verwendet werden.
+
+Beispiel:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## Start
+
+Der Worker wird gestartet mit:
 
 ```bash
 npm start
 ```
 
-The worker listens on `http://localhost:3001`.
+Standardmäßig läuft die API unter:
 
-Set `ONBOARDING_API_TOKEN` in `.env.local` or the process environment before
-starting the worker. Every route requires this value in an
-`Authorization: Bearer <token>` header.
+```text
+http://localhost:3001
+```
 
-## Verify
+## Health Check
 
-Check that the worker is running:
+Mit folgendem Request kann überprüft werden, ob der Worker erreichbar ist:
 
 ```bash
 curl http://localhost:3001/health \
   -H 'Authorization: Bearer your-onboarding-api-token'
 ```
 
-Expected response:
+Erwartete Antwort:
 
 ```json
-{"status":"ok"}
+{
+  "status": "ok"
+}
 ```
 
-## Smart crawl with an LLM
+## Smart Crawl
 
-`POST /smart-crawl` requires explicit consent for each category. Omitted flags
-default to `false`. With `allow_image_scraping: true`, it inspects homepage
-images and returns an `images` object containing a detected `logo` URL and all
-non-favicon image candidates in `hero`. Logo detection prioritizes images in a
-`<header>` marked with a `logo` or `brand` class or ID, then similarly marked
-images elsewhere, then image `alt` text or URLs containing `logo`. Favicon
-metadata (`icon`, `shortcut icon`, and `apple-touch-icon`) is used only as a
-final logo fallback and is not included in `hero`. With `allow_text_scraping: true`, it
-discovers legal links, visits the resolved Impressum URL, extracts its text, and
-uses the LLM to normalize it. Disabled categories are not inspected, downloaded,
-or returned, even when an LLM response contains values for them.
+Der Endpoint
 
-Hero candidates are limited to images visible above the fold or located in one
-of the first three large page containers. They must be at least `800x600` in
-their natural resolution; SVG files and transparent PNGs are excluded. The
-response returns at most the first five eligible hero images.
+```text
+POST /smart-crawl
+```
 
-The worker returns `{ "success": true, "crawl": ... }` when enrichment
-succeeds. Missing LLM configuration and LLM failures return
-`{ "success": false, "error": "..." }` with HTTP `503`.
+analysiert eine Webseite entsprechend der übergebenen Consent-Flags.
 
-When both flags are omitted or `false`, smart crawl does not open a browser or
-call an LLM. It returns:
+Beispiel:
+
+```bash
+curl -X POST http://localhost:3001/smart-crawl \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer your-onboarding-api-token' \
+  -d '{
+    "url": "https://example.com",
+    "allow_text_scraping": true,
+    "allow_image_scraping": true
+  }'
+```
+
+Die Consent-Flags sind:
+
+```json
+{
+  "allow_text_scraping": true,
+  "allow_image_scraping": true
+}
+```
+
+Nicht übergebene Flags werden standardmäßig als `false` behandelt.
+
+Deaktivierte Kategorien werden weder analysiert noch heruntergeladen oder zurückgegeben.
+
+## Bildanalyse
+
+Wenn
+
+```json
+"allow_image_scraping": true
+```
+
+gesetzt ist, analysiert der Worker die Bilder der Startseite.
+
+Die Antwort enthält ein `images`-Objekt mit:
+
+* einer erkannten Logo-URL unter `logo`
+* geeigneten Hero-Bildkandidaten unter `hero`
+
+### Logo-Erkennung
+
+Die Logo-Erkennung priorisiert:
+
+1. Bilder innerhalb eines `<header>` mit Klassen oder IDs wie `logo` oder `brand`
+2. entsprechend markierte Bilder außerhalb des Headers
+3. Bilder mit `logo` im `alt`-Text oder in der URL
+4. Favicon-Metadaten als Fallback
+
+Unterstützte Favicon-Varianten sind unter anderem:
+
+* `icon`
+* `shortcut icon`
+* `apple-touch-icon`
+
+Favicons werden ausschließlich als Logo-Fallback verwendet und nicht als Hero-Bilder zurückgegeben.
+
+### Hero-Bilder
+
+Als Hero-Kandidaten werden Bilder berücksichtigt, die:
+
+* im sichtbaren oberen Seitenbereich liegen oder
+* sich innerhalb der ersten drei größeren Seitenbereiche befinden
+* mindestens eine natürliche Auflösung von `800x600` besitzen
+
+Ausgeschlossen werden:
+
+* SVG-Dateien
+* transparente PNG-Dateien
+* Favicons
+
+Die API liefert maximal fünf geeignete Hero-Bilder zurück.
+
+## Impressum
+
+Wenn
+
+```json
+"allow_text_scraping": true
+```
+
+gesetzt ist, sucht der Worker nach möglichen rechtlichen Links auf der Webseite.
+
+Der erkannte Impressums-Link wird aufgerufen und der öffentlich verfügbare Text extrahiert.
+
+Anschließend kann der Text über den konfigurierten LLM-Provider strukturiert beziehungsweise normalisiert werden.
+
+## LLM-Verarbeitung
+
+Für jede LLM-Verarbeitung existiert ein eigenes System-Message-Template.
+
+Homepage:
+
+```text
+src/llm/homepage-system-message.md
+```
+
+Impressum:
+
+```text
+src/llm/impressum-system-message.md
+```
+
+Die Templates werden bei jedem Request neu eingelesen.
+
+Folgende Platzhalter stehen zur Verfügung:
+
+```text
+{{url}}
+```
+
+enthält die aktuelle Quell-URL.
+
+```text
+{{crawl}}
+```
+
+enthält die JSON-serialisierten Crawl-Daten der jeweiligen Verarbeitungsstufe.
+
+Die gerenderte System Message ist die Eingabe für den jeweiligen LLM-Adapter.
+
+## LLM Provider
+
+Der verwendete Provider wird über
+
+```env
+LLM_PROVIDER=
+```
+
+konfiguriert.
+
+### Ollama
+
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=<model>
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+`OLLAMA_BASE_URL` ist optional und verwendet standardmäßig:
+
+```text
+http://localhost:11434
+```
+
+### OpenAI
+
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=<model>
+OPENAI_API_KEY=<api-key>
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+`OPENAI_BASE_URL` ist optional.
+
+Das konfigurierte Modell muss strukturierte JSON-Ausgaben unterstützen.
+
+### xAI / Grok
+
+```env
+LLM_PROVIDER=xai
+LLM_MODEL=<model>
+XAI_API_KEY=<api-key>
+XAI_BASE_URL=<endpoint>
+```
+
+### Aleph Alpha / PhariaInference
+
+```env
+LLM_PROVIDER=aleph-alpha
+LLM_MODEL=<model>
+ALEPH_ALPHA_BASE_URL=<deployment-url>
+ALEPH_ALPHA_API_KEY=<api-key>
+```
+
+`ALEPH_ALPHA_BASE_URL` entspricht der URL des jeweiligen PhariaInference-Deployments.
+
+Der Adapter verwendet den dafür vorgesehenen `/complete/json`-Endpoint.
+
+## Antwortformat
+
+Bei erfolgreicher Verarbeitung liefert der Worker:
+
+```json
+{
+  "success": true,
+  "crawl": {}
+}
+```
+
+Wenn der LLM-Provider nicht konfiguriert oder nicht erreichbar ist, wird HTTP `503` zurückgegeben:
+
+```json
+{
+  "success": false,
+  "error": "..."
+}
+```
+
+Wenn beide Consent-Flags fehlen oder `false` sind, wird weder ein Browser geöffnet noch ein LLM aufgerufen.
+
+Die Antwort lautet dann:
 
 ```json
 {
@@ -97,62 +363,84 @@ call an LLM. It returns:
 }
 ```
 
-Each LLM request has a dedicated system-message template, read at request time:
+## Logging
 
-- `src/llm/homepage-system-message.md` for the homepage result
-- `src/llm/impressum-system-message.md` for the legal-notice text
+Der Worker schreibt strukturierte JSON-Logs auf die Standardausgabe.
 
-Both templates replace `{{url}}` with their current source URL and `{{crawl}}`
-with their JSON-serialized, stage-specific crawl data. The rendered system
-message is the only input sent to the LLM adapter.
+Standardmäßig werden Logs zusätzlich gespeichert unter:
 
-Set `LLM_PROVIDER` and the provider-specific variables before starting the worker:
-
-| Provider | Required configuration |
-| --- | --- |
-| Ollama | `LLM_PROVIDER=ollama`, `LLM_MODEL`; optional `OLLAMA_BASE_URL` (defaults to `http://localhost:11434`) |
-| OpenAI | `LLM_PROVIDER=openai`, `LLM_MODEL`, `OPENAI_API_KEY`; optional `OPENAI_BASE_URL` (defaults to `https://api.openai.com/v1`). Use a JSON-capable OpenAI model such as `gpt-4o-mini`. |
-| xAI / Grok | `LLM_PROVIDER=xai`, `LLM_MODEL`, `XAI_API_KEY`; optional `XAI_BASE_URL` |
-| Aleph Alpha PhariaInference | `LLM_PROVIDER=aleph-alpha`, `LLM_MODEL`, `ALEPH_ALPHA_BASE_URL`, `ALEPH_ALPHA_API_KEY` |
-
-The worker loads `scraper/.env` first and then `scraper/.env.local`; values in
-`.env.local` override values from `.env`. Values already provided by the process
-environment take precedence over both files. Both scraper environment files are
-ignored by Git.
-
-For Aleph Alpha, `ALEPH_ALPHA_BASE_URL` is the PhariaInference deployment URL;
-the adapter calls its documented `/complete/json` endpoint.
-
-```bash
-curl -X POST http://localhost:3001/smart-crawl \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer your-onboarding-api-token' \
-  -d '{"url":"https://example.com","allow_text_scraping":true,"allow_image_scraping":true}'
+```text
+logs/scraper.log
 ```
 
-## Logs and Troubleshooting
+Der Pfad kann konfiguriert werden:
 
-The worker writes structured JSON-lines logs to standard output and, by default,
-to `logs/scraper.log`. Set `LOG_FILE` to choose a different file path.
+```env
+LOG_FILE=logs/scraper.log
+```
 
-Terminal output defaults to `LOG_LEVEL=info`, which shows request validation and
-smart-crawl start, completion, and failure. The log file defaults to
-`LOG_FILE_LEVEL=debug`, preserving crawl and LLM diagnostics without adding them
-to the terminal. Set `LOG_LEVEL=debug` to see those diagnostics in the terminal.
+### Log-Level
 
-Each LLM diagnostic includes the stage, provider, model, endpoint, response
-format, prompt size, response keys, and duration. A failed request includes its
-error and duration. Set `LOG_LLM_PAYLOADS=true` to record the rendered
-system-message payload and parsed LLM response. Set `LOG_LEVEL=debug` as well
-to show those payloads in the terminal. Payload logs can contain consented crawl
-text and URLs, so enable them only where that data may be retained safely.
+Terminal:
 
-A failed browser launch or navigation is logged with its original error message
-and returned as HTTP `502` with a safe client-facing error body.
+```env
+LOG_LEVEL=info
+```
 
-If startup or crawling reports that an executable or a shared library is
-missing, rerun the install commands above. On Debian or Ubuntu, install the
-required GStreamer package with:
+Log-Datei:
+
+```env
+LOG_FILE_LEVEL=debug
+```
+
+Mit
+
+```env
+LOG_LEVEL=debug
+```
+
+werden zusätzliche technische Informationen auch im Terminal angezeigt.
+
+LLM-Diagnosen enthalten unter anderem:
+
+* Verarbeitungsschritt
+* Provider
+* Modell
+* Endpoint
+* Response-Format
+* Prompt-Größe
+* Response-Keys
+* Verarbeitungsdauer
+
+Fehlgeschlagene Requests enthalten zusätzlich Fehlermeldung und Dauer.
+
+## LLM Payload Logging
+
+Für detaillierte Analyse kann das Logging der vollständigen LLM-Eingaben und -Antworten aktiviert werden:
+
+```env
+LOG_LLM_PAYLOADS=true
+```
+
+Diese Logs können ausgelesene URLs und vom Benutzer freigegebene Webseiteninhalte enthalten.
+
+Die Option sollte daher ausschließlich in Umgebungen aktiviert werden, in denen diese Daten sicher gespeichert und verarbeitet werden dürfen.
+
+## Fehlerbehandlung
+
+Fehler beim Start des Browsers oder bei der Navigation werden intern mit der ursprünglichen Fehlermeldung protokolliert.
+
+Dem Client wird stattdessen eine reduzierte Fehlermeldung mit HTTP-Status `502` zurückgegeben.
+
+Falls Playwright meldet, dass Browser-Binaries oder Systembibliotheken fehlen, sollten die Installationsschritte erneut ausgeführt werden.
+
+Unter Linux beispielsweise:
+
+```bash
+npx playwright install --with-deps
+```
+
+oder für die bekannte GStreamer-Abhängigkeit:
 
 ```bash
 sudo apt install libgstreamer-plugins-bad1.0-0
